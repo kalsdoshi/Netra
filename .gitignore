@@ -1,0 +1,16 @@
+# Python
+venv/
+__pycache__/
+*.pyc
+
+# Data
+outputs/
+storage_data/
+data/images/
+
+# Models (optional, if large)
+models/*.onnx
+
+# OS
+.DS_Store
+Thumbs.db
