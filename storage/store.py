@@ -1,6 +1,7 @@
 import json
 import numpy as np
 import os
+import faiss
 
 class Storage:
     def __init__(self, base_path="storage_data"):
@@ -46,4 +47,13 @@ class Storage:
         if os.path.exists(path):
             with open(path, "r") as f:
                 return json.load(f)
+        return None
+    def save_faiss_index(self, index):
+        path = os.path.join(self.base_path, "faiss.index")
+        faiss.write_index(index, path)
+
+    def load_faiss_index(self):
+        path = os.path.join(self.base_path, "faiss.index")
+        if os.path.exists(path):
+            return faiss.read_index(path)
         return None

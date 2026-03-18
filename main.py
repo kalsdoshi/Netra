@@ -2,6 +2,8 @@ from pipeline.process_images import ImageProcessor
 from core.cluster import merge_clusters
 from core.visualize import save_clusters
 from storage.store import Storage
+from core.faiss_index import FaissIndex
+from core.cluster import suggest_merges_fast
 
 if __name__ == "__main__":
     processor = ImageProcessor("data/images", use_gpu=False)
@@ -12,7 +14,12 @@ if __name__ == "__main__":
     print(f"Total faces: {len(metadata)}")
     print(f"Total clusters (people): {len(cluster_dict)}")
 
+    # 🔍 Smart suggestions
+    suggestions = suggest_merges_fast(embeddings, cluster_dict, threshold=0.45)
 
+    print("\n🤖 Suggested merges:")
+    for s in suggestions[:5]:
+        print(f"{s[0]} ↔ {s[1]} (score: {s[2]:.2f})")
     while True:
         user_input = input("\nMerge clusters? (format: person_1 person_3 or 'no'): ")
 
@@ -45,3 +52,13 @@ if __name__ == "__main__":
     storage.save_clusters(cluster_dict)
 
     print("💾 Data saved successfully!")
+
+    index = storage.load_faiss_index()
+
+    if index is not None:
+        print("\n🔍 Testing FAISS search...")
+
+        query = embeddings[0]
+        scores, indices = index.search(query.reshape(1, -1).astype("float32"), 5)
+
+        print("Similar faces:", indices)

@@ -9,6 +9,7 @@ from core.detector import FaceDetector
 from core.embedder import FaceEmbedder
 from core.visualize import save_clusters
 from storage.store import Storage
+from core.faiss_index import FaissIndex
 
 
 class ImageProcessor:
@@ -96,7 +97,31 @@ class ImageProcessor:
             embeddings_array = np.vstack([old_embeddings, new_embeddings])
             metadata = old_metadata + self.metadata
 
+        # --- FAISS INDEX ---
 
+        faiss_index = FaissIndex(dim=512)
+
+        old_index = self.storage.load_faiss_index()
+
+        # CASE 1: No new data → reuse index
+        if new_embeddings.size == 0 and old_index is not None:
+            print("⚡ Using existing FAISS index")
+            faiss_index.index = old_index
+
+        # CASE 2: Incremental update
+        elif old_index is not None:
+            print("⚡ Updating FAISS index with new embeddings")
+            faiss_index.index = old_index
+            faiss_index.add(new_embeddings)
+
+        # CASE 3: First run
+        else:
+            print("⚡ Building FAISS index from scratch")
+            faiss_index.build(embeddings_array)
+
+        # Save index
+        self.storage.save_faiss_index(faiss_index.index)    
+        
         # --- CLUSTERING LOGIC ---
 
         old_clusters = self.storage.load_clusters()

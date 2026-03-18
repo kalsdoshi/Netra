@@ -79,3 +79,34 @@ def assign_to_clusters(all_embeddings, new_embeddings, cluster_dict, old_count, 
             updated_clusters[new_id] = [new_index]
 
     return updated_clusters
+
+def suggest_merges_fast(embeddings, cluster_dict, threshold=0.6):
+    """
+    Suggest cluster merges using centroid similarity
+    """
+
+    cluster_ids = list(cluster_dict.keys())
+    centroids = {}
+
+    # compute centroid for each cluster
+    for cid in cluster_ids:
+        indices = cluster_dict[cid]
+        vecs = [embeddings[i] for i in indices]
+        centroids[cid] = np.mean(vecs, axis=0)
+
+    suggestions = []
+
+    for i in range(len(cluster_ids)):
+        for j in range(i + 1, len(cluster_ids)):
+            c1 = cluster_ids[i]
+            c2 = cluster_ids[j]
+
+            sim = np.dot(centroids[c1], centroids[c2])
+
+            if sim > threshold:
+                suggestions.append((c1, c2, float(sim)))
+
+    # sort by similarity (best first)
+    suggestions.sort(key=lambda x: x[2], reverse=True)
+
+    return suggestions
