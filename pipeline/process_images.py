@@ -1,3 +1,4 @@
+from importlib.metadata import metadata
 import os
 import cv2
 import numpy as np
@@ -7,6 +8,7 @@ from core.cluster import FaceCluster
 from core.detector import FaceDetector
 from core.embedder import FaceEmbedder
 from core.visualize import save_clusters
+from storage.store import Storage
 
 
 class ImageProcessor:
@@ -18,11 +20,24 @@ class ImageProcessor:
         self.embeddings = []
         self.metadata = []
 
+        self.storage = Storage()
+
     def process(self):
+        # Load previous data
+        old_embeddings = self.storage.load_embeddings()
+        old_metadata = self.storage.load_metadata()
+
+        processed_images = set()
+
+        if old_metadata:
+            processed_images = set([m["image"] for m in old_metadata])
+            print(f"📂 Found {len(processed_images)} already processed images")
         image_files = [f for f in os.listdir(self.image_folder)
                        if f.lower().endswith(('.jpg', '.jpeg', '.png'))]
 
         for img_name in tqdm(image_files):
+            if img_name in processed_images:
+                continue
             img_path = os.path.join(self.image_folder, img_name)
             image = cv2.imread(img_path)
 
@@ -55,25 +70,78 @@ class ImageProcessor:
 
                 self.metadata.append({
                     "image": img_name,
-                    "face_id": idx,
-                    "face_crop": face_crop
+                    "face_id": int(idx),
+                    "bbox": [int(x1), int(y1), int(x2), int(y2)]
                 })
 
-        embeddings_array = np.array(self.embeddings)
+        # --- PREPARE NEW EMBEDDINGS ---
+        new_embeddings = np.array(self.embeddings)
 
-        from core.cluster import FaceCluster
-        clusterer = FaceCluster(threshold=0.5)
-        clusters = clusterer.cluster(embeddings_array)
-        
-    
-        print(f"Total clusters (people): {len(clusters)}")
-        
+        # --- MERGE LOGIC ---
 
-        cluster_dict = {
-            f"person_{i}": cluster
-            for i, cluster in enumerate(clusters)
-        }
-        
-        save_clusters(cluster_dict, self.metadata)
-        
-        return embeddings_array, self.metadata, cluster_dict
+        # CASE 1: No new images → reuse old data
+        if new_embeddings.size == 0:
+            print("⚡ No new images found. Using existing data.")
+
+            embeddings_array = old_embeddings
+            metadata = old_metadata
+
+        # CASE 2: First run (no old data)
+        elif old_embeddings is None:
+            embeddings_array = new_embeddings
+            metadata = self.metadata
+
+        # CASE 3: Normal merge (old + new)
+        else:
+            embeddings_array = np.vstack([old_embeddings, new_embeddings])
+            metadata = old_metadata + self.metadata
+
+
+        # --- CLUSTERING LOGIC ---
+
+        old_clusters = self.storage.load_clusters()
+
+        # CASE 1: No new data → reuse
+        if new_embeddings.size == 0 and old_clusters is not None:
+            print("⚡ Using existing clusters (no recomputation)")
+            cluster_dict = old_clusters
+
+        # CASE 2: Incremental update
+        elif old_clusters is not None and old_embeddings is not None:
+            print("⚡ Incremental clustering (adding new faces)")
+
+            from core.cluster import assign_to_clusters
+
+            cluster_dict = assign_to_clusters(
+                old_embeddings,
+                new_embeddings,
+                old_clusters,
+                len(old_embeddings),
+                threshold=0.5
+            )
+
+        # CASE 3: First run
+        else:
+            print("⚡ First-time clustering")
+
+            clusterer = FaceCluster(threshold=0.5)
+            clusters = clusterer.cluster(embeddings_array)
+
+            cluster_dict = {
+                f"person_{i}": cluster
+                for i, cluster in enumerate(clusters)
+            }
+
+
+        # --- OUTPUT ---
+        print(f"Total clusters (people): {len(cluster_dict)}")
+
+        # --- VISUALIZATION ---
+        save_clusters(cluster_dict, metadata)
+
+        # --- SAVE (VERY IMPORTANT ORDER) ---
+        self.storage.save_embeddings(embeddings_array)
+        self.storage.save_metadata(metadata)
+        self.storage.save_clusters(cluster_dict)
+
+        return embeddings_array, metadata, cluster_dict
