@@ -10,6 +10,8 @@ from core.embedder import FaceEmbedder
 from core.visualize import save_clusters
 from storage.store import Storage
 from core.faiss_index import FaissIndex
+from core.cluster import DBSCANCluster
+from core.config import Config
 
 
 class ImageProcessor:
@@ -121,8 +123,13 @@ class ImageProcessor:
 
         # Save index
         self.storage.save_faiss_index(faiss_index.index)    
-        
+
         # --- CLUSTERING LOGIC ---
+
+        config = Config()
+
+        eps = config.get("clustering", "eps")
+        min_samples = config.get("clustering", "min_samples")
 
         old_clusters = self.storage.load_clusters()
 
@@ -131,32 +138,31 @@ class ImageProcessor:
             print("⚡ Using existing clusters (no recomputation)")
             cluster_dict = old_clusters
 
-        # CASE 2: Incremental update
+        # CASE 2: Incremental (keep your existing logic)
         elif old_clusters is not None and old_embeddings is not None:
             print("⚡ Incremental clustering (adding new faces)")
 
             from core.cluster import assign_to_clusters
 
             cluster_dict = assign_to_clusters(
-                old_embeddings,
+                embeddings_array,
                 new_embeddings,
                 old_clusters,
                 len(old_embeddings),
                 threshold=0.5
             )
 
-        # CASE 3: First run
+        # CASE 3: First run → DBSCAN
         else:
-            print("⚡ First-time clustering")
+            print("⚡ First-time clustering (DBSCAN)")
 
-            clusterer = FaceCluster(threshold=0.5)
+            clusterer = DBSCANCluster(eps=eps, min_samples=min_samples)
             clusters = clusterer.cluster(embeddings_array)
 
             cluster_dict = {
                 f"person_{i}": cluster
                 for i, cluster in enumerate(clusters)
             }
-
 
         # --- OUTPUT ---
         print(f"Total clusters (people): {len(cluster_dict)}")
