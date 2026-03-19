@@ -97,6 +97,9 @@ class ImageProcessor:
         # CASE 3: Normal merge (old + new)
         else:
             embeddings_array = np.vstack([old_embeddings, new_embeddings])
+            # Ensure old_metadata is a list before merging
+            if old_metadata is None:
+                old_metadata = []
             metadata = old_metadata + self.metadata
 
         # --- FAISS INDEX ---

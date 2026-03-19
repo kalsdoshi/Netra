@@ -1,7 +1,7 @@
 from fastapi import FastAPI, UploadFile, File
 import shutil
 import os
-
+from fastapi.middleware.cors import CORSMiddleware
 from core.search import FaceSearch
 from core.detector import FaceDetector
 from core.embedder import FaceEmbedder
@@ -10,9 +10,18 @@ from core.cluster import merge_two_clusters
 from pydantic import BaseModel
 from core.cluster import suggest_merges_fast
 from core.cluster import get_cluster_representatives
+from fastapi.staticfiles import StaticFiles
+
 
 app = FastAPI()
-
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"]
+)
+app.mount("/images", StaticFiles(directory="data/images"), name="images")
 # --- Load system once ---
 storage = Storage()
 index = storage.load_faiss_index()
@@ -63,6 +72,9 @@ def get_clusters():
     if cluster_dict is None or metadata is None:
         return {"error": "No data found. Run processing first."}
 
+    # compute representatives
+    reps = get_cluster_representatives(embeddings, cluster_dict)
+
     response = {}
 
     for person_id, indices in cluster_dict.items():
@@ -72,35 +84,19 @@ def get_clusters():
             data = metadata[idx]
 
             faces.append({
+                "idx": idx,  # 🔥 ADD THIS
                 "image": data["image"],
                 "face_id": data["face_id"],
                 "bbox": data["bbox"]
             })
 
-        # compute representatives
-        reps = get_cluster_representatives(embeddings, cluster_dict)
+        rep_idx = reps[person_id]
 
-        response = {}
-
-        for person_id, indices in cluster_dict.items():
-            faces = []
-
-            for idx in indices:
-                data = metadata[idx]
-
-                faces.append({
-                    "image": data["image"],
-                    "face_id": data["face_id"],
-                    "bbox": data["bbox"]
-                })
-
-            rep_idx = reps[person_id]
-
-            response[person_id] = {
-                "representative": metadata[rep_idx]["image"],
-                "size": len(indices),
-                "faces": faces
-            }
+        response[person_id] = {
+            "representative": rep_idx,
+            "size": len(indices),
+            "faces": faces
+        }
 
     return {
         "total_clusters": len(response),
@@ -162,3 +158,31 @@ def get_suggestions():
         "total_suggestions": len(response),
         "suggestions": response
     }
+
+import cv2
+from fastapi.responses import Response
+
+@app.get("/thumbnail/{idx}")
+def get_thumbnail(idx: int):
+    metadata = storage.load_metadata()
+
+    if idx >= len(metadata):
+        return {"error": "Invalid index"}
+
+    data = metadata[idx]
+
+    img_path = os.path.join("data/images", data["image"])
+    image = cv2.imread(img_path)
+
+    if image is None:
+        return {"error": "Image not found"}
+
+    x1, y1, x2, y2 = data["bbox"]
+    face = image[y1:y2, x1:x2]
+
+    if face.size == 0:
+        return {"error": "Invalid crop"}
+
+    _, buffer = cv2.imencode(".jpg", face)
+
+    return Response(content=buffer.tobytes(), media_type="image/jpeg")
