@@ -1,10 +1,10 @@
 import React from "react";
 import Clusters from "./pages/Clusters";
+import "./App.css";
 
 function App() {
   return (
-    <div>
-      <h1>Netra AI</h1>
+    <div className="App">
       <Clusters />
     </div>
   );

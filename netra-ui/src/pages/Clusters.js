@@ -1,27 +1,36 @@
 import React, { useEffect, useState } from "react";
 import { getClusters, mergeClusters } from "../api/api";
+import "../styles/Clusters.css";
 
 export default function Clusters() {
   const [clusters, setClusters] = useState({});
   const [selectedCluster, setSelectedCluster] = useState(null);
   const [selected, setSelected] = useState([]);
-  /*const [suggestions, setSuggestions] = useState([]);*/
+  const [loading, setLoading] = useState(true);
+  const [theme, setTheme] = useState("neon");
+  const [searchTerm, setSearchTerm] = useState("");
+  const [stats, setStats] = useState({ total: 0, faces: 0 });
 
   useEffect(() => {
     fetchClusters();
   }, []);
 
   const fetchClusters = async () => {
+    setLoading(true);
     try {
       const res = await getClusters();
       if (res.data.error) {
-        alert("Error: " + res.data.error);
+        console.error("Error:", res.data.error);
       } else {
         setClusters(res.data.clusters || {});
+        const total = Object.keys(res.data.clusters || {}).length;
+        const faces = Object.values(res.data.clusters || {}).reduce((sum, c) => sum + c.size, 0);
+        setStats({ total, faces });
       }
     } catch (err) {
       console.error("Failed to fetch clusters:", err);
-      alert("Failed to fetch clusters. Make sure the API is running and images are processed.");
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -37,88 +46,155 @@ export default function Clusters() {
 
   const handleMerge = async () => {
     if (selected.length !== 2) return;
-
-    await mergeClusters(selected[0], selected[1]);
-
-    alert("Merged!");
-
-    setSelected([]);
-    fetchClusters();
+    try {
+      await mergeClusters(selected[0], selected[1]);
+      setSelected([]);
+      await fetchClusters();
+    } catch (err) {
+      console.error("Merge failed:", err);
+    }
   };
+
+  const filteredClusters = Object.entries(clusters).filter(([id]) =>
+    id.toLowerCase().includes(searchTerm.toLowerCase())
+  );
 
   // 🔥 DETAIL VIEW
   if (selectedCluster) {
     return (
-      <div>
-        <button onClick={() => setSelectedCluster(null)}>⬅ Back</button>
-
-        <h2>{selectedCluster.id}</h2>
-
-        <div style={{ display: "flex", flexWrap: "wrap" }}>
+      <div className={`netra-container theme-${theme}`}>
+        <button className="back-btn" onClick={() => setSelectedCluster(null)}>
+          ← Back to Clusters
+        </button>
+        <div className="detail-header">
+          <div className="detail-title">
+            <h1>{selectedCluster.id}</h1>
+            <span className="badge">{selectedCluster.faces.length} faces</span>
+          </div>
+        </div>
+        <div className="gallery-grid">
           {selectedCluster.faces.map((face, i) => (
-            <img
-              key={i}
-              src={`http://127.0.0.1:8000/images/${face.image}`}
-              alt=""
-              width={150}
-              style={{ margin: 10 }}
-            />
+            <div key={i} className="gallery-item">
+              <img
+                src={`http://127.0.0.1:8000/images/${face.image}`}
+                alt={`Face ${i}`}
+                className="gallery-img"
+              />
+            </div>
           ))}
         </div>
       </div>
     );
   }
-  
 
   // 🔥 GRID VIEW
   return (
-    <div>
-      <h2>Clusters</h2>
+    <div className={`netra-container theme-${theme}`}>
+      {/* HEADER */}
+      <header className="header-section">
+        <div className="header-content">
+          <div className="title-area">
+            <h1 className="main-title">🧠 NETRA AI</h1>
+            <p className="subtitle">Offline Face Intelligence System</p>
+          </div>
+          <div className="theme-switcher">
+            <label>Theme:</label>
+            <select value={theme} onChange={(e) => setTheme(e.target.value)}>
+              <option value="neon">🌟 Neon</option>
+              <option value="dark">🌙 Dark</option>
+              <option value="glassmorphism">💎 Glass</option>
+              <option value="cyberpunk">🔮 Cyberpunk</option>
+              <option value="gradient">🌈 Gradient</option>
+            </select>
+          </div>
+        </div>
+      </header>
 
-      {/* 🔥 Merge Button */}
+      {/* STATS */}
+      <div className="stats-section">
+        <div className="stat-card">
+          <div className="stat-number">{stats.total}</div>
+          <div className="stat-label">People</div>
+        </div>
+        <div className="stat-card">
+          <div className="stat-number">{stats.faces}</div>
+          <div className="stat-label">Total Faces</div>
+        </div>
+        <div className="stat-card">
+          <div className="stat-number">{selected.length}/2</div>
+          <div className="stat-label">Selected</div>
+        </div>
+      </div>
+
+      {/* SEARCH */}
+      <div className="search-section">
+        <input
+          type="text"
+          placeholder="🔍 Search clusters..."
+          value={searchTerm}
+          onChange={(e) => setSearchTerm(e.target.value)}
+          className="search-input"
+        />
+      </div>
+
+      {/* MERGE BUTTON */}
       {selected.length === 2 && (
-        <button onClick={handleMerge}>
-          🔥 Merge {selected[0]} + {selected[1]}
-        </button>
+        <div className="merge-action">
+          <button className="merge-btn" onClick={handleMerge}>
+            ⚡ MERGE {selected[0]} + {selected[1]}
+          </button>
+        </div>
       )}
 
-      <div style={{ display: "flex", flexWrap: "wrap" }}>
-        {Object.entries(clusters).map(([id, cluster]) => (
-          console.log(cluster.faces)) || (
-          <div
-            key={id}
-            style={{
-              margin: 10,
-              border: selected.includes(id)
-                ? "3px solid green"
-                : "1px solid #ccc",
-              padding: 10,
-            }}
-          >
-            {/* 🔥 CLICK IMAGE → OPEN CLUSTER */}
-            <img
-              src={`http://127.0.0.1:8000/thumbnail/${cluster.representative}`}
-              alt=""
-              width={120}
-              style={{ cursor: "pointer" }}
-              onClick={() =>
-                setSelectedCluster({
-                  id,
-                  faces: cluster.faces,
-                })
-              }
-            />
-
-            <p>{id}</p>
-            <p>{cluster.size} faces</p>
-
-            {/* 🔥 SELECT BUTTON */}
-            <button onClick={() => toggleSelect(id)}>
-              {selected.includes(id) ? "Unselect" : "Select"}
-            </button>
-          </div>
-        ))}
-      </div>
+      {/* CLUSTERS GRID */}
+      {loading ? (
+        <div className="loading">
+          <div className="spinner"></div>
+          <p>Loading clusters...</p>
+        </div>
+      ) : filteredClusters.length === 0 ? (
+        <div className="empty-state">
+          <p>No clusters found. Process images first!</p>
+        </div>
+      ) : (
+        <div className="clusters-grid">
+          {filteredClusters.map(([id, cluster]) => (
+            <div
+              key={id}
+              className={`cluster-card ${selected.includes(id) ? "selected" : ""}`}
+              onClick={() => toggleSelect(id)}
+            >
+              <div className="cluster-image-wrapper">
+                <img
+                  src={`http://127.0.0.1:8000/thumbnail/${cluster.representative}`}
+                  alt={id}
+                  className="cluster-image"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setSelectedCluster({ id, faces: cluster.faces });
+                  }}
+                />
+                <div className="cluster-overlay">
+                  <span className="cluster-size">{cluster.size}</span>
+                </div>
+              </div>
+              <div className="cluster-info">
+                <h3>{id}</h3>
+                <p>{cluster.size} face{cluster.size !== 1 ? "s" : ""}</p>
+                <button
+                  className={`select-btn ${selected.includes(id) ? "selected" : ""}`}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    toggleSelect(id);
+                  }}
+                >
+                  {selected.includes(id) ? "✓ Selected" : "Select"}
+                </button>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
     </div>
   );
 }
