@@ -1,4 +1,4 @@
-from fastapi import FastAPI, UploadFile, File
+from fastapi import FastAPI, UploadFile, File, Query
 import shutil
 import os
 from fastapi.middleware.cors import CORSMiddleware
@@ -130,7 +130,10 @@ def merge_clusters(req: MergeRequest):
     }
 
 @app.get("/suggestions")
-def get_suggestions():
+def get_suggestions(
+    threshold: float = Query(0.3, ge=0.0, le=1.0),
+    limit: int = Query(20, ge=1, le=200)
+):
     storage = Storage()
 
     embeddings = storage.load_embeddings()
@@ -142,12 +145,12 @@ def get_suggestions():
     suggestions = suggest_merges_fast(
         embeddings,
         cluster_dict,
-        threshold=0.5
+        threshold=threshold
     )
 
     response = []
 
-    for s in suggestions[:10]:
+    for s in suggestions[:limit]:
         response.append({
             "cluster1": s[0],
             "cluster2": s[1],
@@ -186,3 +189,21 @@ def get_thumbnail(idx: int):
     _, buffer = cv2.imencode(".jpg", face)
 
     return Response(content=buffer.tobytes(), media_type="image/jpeg")
+
+@app.get("/objects/{image_name}")
+def get_objects(image_name: str):
+    metadata = storage.load_metadata()
+
+    seen = set()
+    unique_objects = []
+
+    for m in metadata:
+        if m["image"] == image_name:
+            for obj in m.get("objects", []):
+                key = (obj["label"], tuple(obj["bbox"]))
+
+                if key not in seen:
+                    seen.add(key)
+                    unique_objects.append(obj)
+
+    return {"objects": unique_objects}

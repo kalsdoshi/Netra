@@ -12,6 +12,7 @@ from storage.store import Storage
 from core.faiss_index import FaissIndex
 from core.cluster import DBSCANCluster
 from core.config import Config
+from core.object_detector import ObjectDetector
 
 
 class ImageProcessor:
@@ -24,6 +25,7 @@ class ImageProcessor:
         self.metadata = []
 
         self.storage = Storage()
+        self.object_detector = ObjectDetector()
 
     def process(self):
         # Load previous data
@@ -48,6 +50,17 @@ class ImageProcessor:
                 continue
 
             faces = self.detector.detect(image)
+            # detect objects ONCE per image
+            objects = self.object_detector.detect(image)
+
+            for idx, f in enumerate(faces):
+                ...
+                self.metadata.append({
+                    "image": img_name,
+                    "face_id": int(idx),
+                    "bbox": [int(x1), int(y1), int(x2), int(y2)],
+                    # ❌ REMOVE objects from here
+                })
 
             for idx, f in enumerate(faces):
                 embedding = self.embedder.get_embedding(f["face"])
@@ -74,7 +87,7 @@ class ImageProcessor:
                 self.metadata.append({
                     "image": img_name,
                     "face_id": int(idx),
-                    "bbox": [int(x1), int(y1), int(x2), int(y2)]
+                    "bbox": [int(x1), int(y1), int(x2), int(y2)],
                 })
 
         # --- PREPARE NEW EMBEDDINGS ---
