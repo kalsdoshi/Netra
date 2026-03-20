@@ -190,6 +190,24 @@ def get_thumbnail(idx: int):
 
     return Response(content=buffer.tobytes(), media_type="image/jpeg")
 
+@app.get("/image-thumb/{image_name}")
+def get_image_thumb(image_name: str):
+    # Fast whole-image thumbnail for the 3D graph display
+    img_path = os.path.join("data/images", image_name)
+    image = cv2.imread(img_path)
+    
+    if image is None:
+         return {"error": "Image not found"}
+         
+    # Resize to lightweight 256x256 resolution
+    # Using INTER_AREA for downsampling preserves quality, but INTER_LINEAR is much faster.
+    thumb = cv2.resize(image, (256, 256), interpolation=cv2.INTER_LINEAR)
+    
+    # Compress aggressive to load fast over network
+    _, buffer = cv2.imencode(".jpg", thumb, [int(cv2.IMWRITE_JPEG_QUALITY), 60])
+    
+    return Response(content=buffer.tobytes(), media_type="image/jpeg")
+
 @app.get("/objects/{image_name}")
 def get_objects(image_name: str):
     metadata = storage.load_metadata()
@@ -207,3 +225,34 @@ def get_objects(image_name: str):
                     unique_objects.append(obj)
 
     return {"objects": unique_objects}
+
+@app.get("/graph")
+def get_graph():
+    storage = Storage()
+    graph_data = storage.load_graph()
+    
+    if graph_data is None:
+        return {"error": "Graph data not found. Run processing first or trigger a rebuild."}
+        
+    return graph_data
+
+@app.post("/graph/rebuild")
+def rebuild_graph():
+    storage = Storage()
+    embeddings = storage.load_embeddings()
+    metadata = storage.load_metadata()
+    cluster_dict = storage.load_clusters()
+    
+    if embeddings is None or metadata is None or cluster_dict is None:
+        return {"error": "Missing base data to build graph."}
+        
+    from core.graph_builder import GraphBuilder
+    graph_builder = GraphBuilder(embeddings, metadata, cluster_dict, threshold=0.15)
+    graph_data = graph_builder.build_graph()
+    
+    storage.save_graph(graph_data)
+    
+    return {
+        "message": "Graph rebuilt successfully",
+        "metrics": graph_data.get("metrics", {})
+    }

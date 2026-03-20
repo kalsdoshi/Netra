@@ -7,7 +7,6 @@ export default function Clusters() {
   const [selectedCluster, setSelectedCluster] = useState(null);
   const [selected, setSelected] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [theme, setTheme] = useState("neon");
   const [searchTerm, setSearchTerm] = useState("");
   const [stats, setStats] = useState({ total: 0, faces: 0 });
 
@@ -62,7 +61,7 @@ export default function Clusters() {
   // 🔥 DETAIL VIEW
   if (selectedCluster) {
     return (
-      <div className={`netra-container theme-${theme}`}>
+      <div className="clusters-page">
         <button className="back-btn" onClick={() => setSelectedCluster(null)}>
           ← Back to Clusters
         </button>
@@ -87,25 +86,14 @@ export default function Clusters() {
     );
   }
 
-  // 🔥 GRID VIEW
   return (
-    <div className={`netra-container theme-${theme}`}>
+    <div className="clusters-page">
       {/* HEADER */}
       <header className="header-section">
         <div className="header-content">
           <div className="title-area">
-            <h1 className="main-title">🧠 NETRA AI</h1>
-            <p className="subtitle">Offline Face Intelligence System</p>
-          </div>
-          <div className="theme-switcher">
-            <label>Theme:</label>
-            <select value={theme} onChange={(e) => setTheme(e.target.value)}>
-              <option value="neon">🌟 Neon</option>
-              <option value="dark">🌙 Dark</option>
-              <option value="glassmorphism">💎 Glass</option>
-              <option value="cyberpunk">🔮 Cyberpunk</option>
-              <option value="gradient">🌈 Gradient</option>
-            </select>
+            <h2 className="main-title">Identity Nexus</h2>
+            <p className="subtitle">Consolidated gallery of mapped human entities</p>
           </div>
         </div>
       </header>

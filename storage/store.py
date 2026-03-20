@@ -57,3 +57,15 @@ class Storage:
         if os.path.exists(path):
             return faiss.read_index(path)
         return None
+
+    def save_graph(self, graph_data):
+        path = os.path.join(self.base_path, "graph.json")
+        with open(path, "w") as f:
+            json.dump(graph_data, f, indent=2)
+
+    def load_graph(self):
+        path = os.path.join(self.base_path, "graph.json")
+        if os.path.exists(path):
+            with open(path, "r") as f:
+                return json.load(f)
+        return None

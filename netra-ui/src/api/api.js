@@ -21,3 +21,5 @@ export const searchFace = (file) => {
 
 export const getObjectsByImage = (imageName) => API.get(`/objects/${imageName}`);
 
+export const getGraph = () => API.get("/graph");
+export const rebuildGraph = () => API.post("/graph/rebuild");

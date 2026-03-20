@@ -3,6 +3,7 @@ import os
 import cv2
 import numpy as np
 from tqdm import tqdm
+from concurrent.futures import ThreadPoolExecutor, as_completed
 
 from core.cluster import FaceCluster
 from core.detector import FaceDetector
@@ -40,58 +41,69 @@ class ImageProcessor:
         image_files = [f for f in os.listdir(self.image_folder)
                        if f.lower().endswith(('.jpg', '.jpeg', '.png'))]
 
-        for img_name in tqdm(image_files):
-            if img_name in processed_images:
-                continue
-            img_path = os.path.join(self.image_folder, img_name)
-            image = cv2.imread(img_path)
+        new_embeddings_list = []
+        new_metadata_list = []
 
-            if image is None:
-                continue
+        # --- PARALLEL IMAGE PROCESSING ---
+        def process_single_image(img_name):
+            try:
+                img_path = os.path.join(self.image_folder, img_name)
+                image = cv2.imread(img_path)
+                if image is None: return [], []
 
-            faces = self.detector.detect(image)
-            # detect objects ONCE per image
-            objects = self.object_detector.detect(image)
+                faces = self.detector.detect(image)
+                objects = self.object_detector.detect(image)
+                
+                local_embeddings = []
+                local_metadata = []
 
-            for idx, f in enumerate(faces):
-                ...
-                self.metadata.append({
-                    "image": img_name,
-                    "face_id": int(idx),
-                    "bbox": [int(x1), int(y1), int(x2), int(y2)],
-                    # ❌ REMOVE objects from here
-                })
+                for idx, f in enumerate(faces):
+                    embedding = self.embedder.get_embedding(f["face"])
+                    local_embeddings.append(embedding)
+                    
+                    bbox = f["bbox"]
+                    h, w, _ = image.shape
+                    x1, y1, x2, y2 = bbox
+                    x1, y1 = max(0, x1), max(0, y1)
+                    x2, y2 = min(w, x2), min(h, y2)
 
-            for idx, f in enumerate(faces):
-                embedding = self.embedder.get_embedding(f["face"])
+                    if x2 <= x1 or y2 <= y1:
+                        continue
 
-                self.embeddings.append(embedding)
-                bbox = f["bbox"]
-                h, w, _ = image.shape
+                    face_crop = image[y1:y2, x1:x2]
+                    if face_crop.size == 0:
+                        continue
 
-                x1, y1, x2, y2 = bbox
+                    local_metadata.append({
+                        "image": img_name,
+                        "face_id": int(idx),
+                        "bbox": [int(x1), int(y1), int(x2), int(y2)],
+                        "objects": objects,
+                    })
+                return local_embeddings, local_metadata
+            except Exception as e:
+                print(f"Error processing {img_name}: {e}")
+                return [], []
 
-                x1 = max(0, x1)
-                y1 = max(0, y1)
-                x2 = min(w, x2)
-                y2 = min(h, y2)
-
-                if x2 <= x1 or y2 <= y1:
-                    continue
-
-                face_crop = image[y1:y2, x1:x2]
-
-                if face_crop.size == 0:
-                    continue
-
-                self.metadata.append({
-                    "image": img_name,
-                    "face_id": int(idx),
-                    "bbox": [int(x1), int(y1), int(x2), int(y2)],
-                })
+        images_to_process = [f for f in image_files if f not in processed_images]
+        
+        print(f"⚡ Processing {len(images_to_process)} new images in parallel...")
+        
+        # Using ThreadPoolExecutor for IO/CPU bound ONNX calls
+        with ThreadPoolExecutor(max_workers=4) as executor:
+            futures = {executor.submit(process_single_image, img): img for img in images_to_process}
+            
+            for future in tqdm(as_completed(futures), total=len(images_to_process), desc="Extracting Features"):
+                embs, metas = future.result()
+                if embs:
+                    new_embeddings_list.extend(embs)
+                    new_metadata_list.extend(metas)
+                    
+        self.embeddings.extend(new_embeddings_list)
+        self.metadata.extend(new_metadata_list)
 
         # --- PREPARE NEW EMBEDDINGS ---
-        new_embeddings = np.array(self.embeddings)
+        new_embeddings = np.array(new_embeddings_list)
 
         # --- MERGE LOGIC ---
 
@@ -183,6 +195,12 @@ class ImageProcessor:
         # --- OUTPUT ---
         print(f"Total clusters (people): {len(cluster_dict)}")
 
+        # --- GRAPH BUILDING ---
+        from core.graph_builder import GraphBuilder
+        print("⚡ Building Relational Graph")
+        graph_builder = GraphBuilder(embeddings_array, metadata, cluster_dict, threshold=0.15)
+        graph_data = graph_builder.build_graph()
+
         # --- VISUALIZATION ---
         save_clusters(cluster_dict, metadata)
 
@@ -190,5 +208,6 @@ class ImageProcessor:
         self.storage.save_embeddings(embeddings_array)
         self.storage.save_metadata(metadata)
         self.storage.save_clusters(cluster_dict)
+        self.storage.save_graph(graph_data)
 
         return embeddings_array, metadata, cluster_dict
