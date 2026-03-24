@@ -1,4 +1,5 @@
 import numpy as np
+import hdbscan
 
 class FaceCluster:
     def __init__(self, threshold=0.5):
@@ -44,7 +45,8 @@ def merge_clusters(cluster_dict, id1, id2):
 
 def assign_to_clusters(all_embeddings, new_embeddings, cluster_dict, old_count, threshold=0.5):
     """
-    Assign new embeddings to existing clusters
+    Assign new embeddings to existing clusters using median similarity
+    (more robust to outlier embeddings than mean).
     """
 
     updated_clusters = cluster_dict.copy()
@@ -65,10 +67,11 @@ def assign_to_clusters(all_embeddings, new_embeddings, cluster_dict, old_count, 
             if len(sims) == 0:
                 continue
 
-            avg_sim = np.mean(sims)
+            # Use median instead of mean — more robust to outliers
+            med_sim = np.median(sims)
 
-            if avg_sim > best_score:
-                best_score = avg_sim
+            if med_sim > best_score:
+                best_score = med_sim
                 best_cluster = person_id
 
         # assign
@@ -123,31 +126,43 @@ def merge_two_clusters(cluster_dict, id1, id2):
 
     return cluster_dict
 
-from sklearn.cluster import DBSCAN
 
-
-class DBSCANCluster:
-    def __init__(self, eps=0.5, min_samples=2):
-        self.eps = eps
+class HDBSCANCluster:
+    """
+    HDBSCAN for face clustering — automatically determines optimal cluster count.
+    Superior to DBSCAN because it doesn't require a fixed eps parameter and
+    handles varying-density clusters more naturally.
+    """
+    def __init__(self, min_cluster_size=2, min_samples=1, 
+                 cluster_selection_epsilon=0.35):
+        self.min_cluster_size = min_cluster_size
         self.min_samples = min_samples
+        self.cluster_selection_epsilon = cluster_selection_epsilon
 
     def cluster(self, embeddings):
-        # normalize for cosine similarity
-        embeddings = embeddings / np.linalg.norm(embeddings, axis=1, keepdims=True)
+        if len(embeddings) == 0:
+            return []
 
-        clustering = DBSCAN(
-            eps=self.eps,
+        # Normalize for cosine similarity
+        norms = np.linalg.norm(embeddings, axis=1, keepdims=True)
+        norms = np.maximum(norms, 1e-8)  # avoid division by zero
+        embeddings = embeddings / norms
+
+        clusterer = hdbscan.HDBSCAN(
+            min_cluster_size=self.min_cluster_size,
             min_samples=self.min_samples,
-            metric="cosine"
+            metric="euclidean",  # on L2-normalized vectors, euclidean ≈ cosine
+            cluster_selection_epsilon=self.cluster_selection_epsilon,
+            cluster_selection_method="eom",  # Excess of Mass — better for faces
         )
 
-        labels = clustering.fit_predict(embeddings)
+        labels = clusterer.fit_predict(embeddings)
 
         clusters = {}
 
         for idx, label in enumerate(labels):
             if label == -1:
-                # noise → treat as separate person
+                # noise → treat as separate person (singleton cluster)
                 clusters[f"person_noise_{idx}"] = [idx]
             else:
                 key = f"person_{label}"
@@ -157,11 +172,22 @@ class DBSCANCluster:
 
         return list(clusters.values())
 
-import numpy as np
+
+# Keep backward-compatible alias
+class DBSCANCluster(HDBSCANCluster):
+    """Backward-compatible alias — now uses HDBSCAN internally."""
+    def __init__(self, eps=0.5, min_samples=2):
+        super().__init__(
+            min_cluster_size=min_samples, 
+            min_samples=1,
+            cluster_selection_epsilon=0.35
+        )
+
 
 def get_cluster_representatives(embeddings, cluster_dict):
     """
-    Return best representative index for each cluster
+    Return best representative index for each cluster.
+    Uses vectorized matrix multiply for O(n) per cluster instead of O(n²).
     """
     representatives = {}
 
@@ -170,17 +196,17 @@ def get_cluster_representatives(embeddings, cluster_dict):
             representatives[person_id] = indices[0]
             continue
 
-        best_idx = None
-        best_score = -1
-
-        for i in indices:
-            sims = [np.dot(embeddings[i], embeddings[j]) for j in indices]
-            avg_sim = np.mean(sims)
-
-            if avg_sim > best_score:
-                best_score = avg_sim
-                best_idx = i
-
-        representatives[person_id] = best_idx
+        # Vectorized: compute all pairwise similarities at once
+        idx_array = np.array(indices)
+        vecs = embeddings[idx_array].astype(np.float32)
+        
+        # Similarity matrix via matrix multiply (n×d @ d×n = n×n)
+        sim_matrix = vecs @ vecs.T
+        
+        # Best representative = highest average similarity to all others
+        avg_sims = sim_matrix.mean(axis=1)
+        best_local = int(np.argmax(avg_sims))
+        
+        representatives[person_id] = indices[best_local]
 
     return representatives

@@ -50,7 +50,6 @@ class Config:
     image_extensions: tuple = (".jpg", ".jpeg", ".png", ".bmp", ".webp")
     cache_embeddings: bool = True        # skip recomputation on rerun
 
-    cluster_selection_epsilon: float = 0.0   # existing line — change default:
     cluster_selection_epsilon: float = 0.35  # cosine dist units [0, 2]
     
     def __post_init__(self):

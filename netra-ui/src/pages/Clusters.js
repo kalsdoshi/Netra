@@ -1,6 +1,8 @@
-import React, { useEffect, useState } from "react";
-import { getClusters, mergeClusters } from "../api/api";
+import React, { useEffect, useState, useCallback } from "react";
+import { getClustersPaginated, mergeClusters } from "../api/api";
 import "../styles/Clusters.css";
+
+const PAGE_SIZE = 24;
 
 export default function Clusters() {
   const [clusters, setClusters] = useState({});
@@ -9,27 +11,36 @@ export default function Clusters() {
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
   const [stats, setStats] = useState({ total: 0, faces: 0 });
+  const [page, setPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
 
-  useEffect(() => {
-    fetchClusters();
-  }, []);
-
-  const fetchClusters = async () => {
+  const fetchClusters = useCallback(async (p = 1) => {
     setLoading(true);
     try {
-      const res = await getClusters();
+      const res = await getClustersPaginated(p, PAGE_SIZE);
       if (res.data.error) {
         console.error("Error:", res.data.error);
       } else {
         setClusters(res.data.clusters || {});
-        const total = Object.keys(res.data.clusters || {}).length;
+        setTotalPages(res.data.pages || 1);
         const faces = Object.values(res.data.clusters || {}).reduce((sum, c) => sum + c.size, 0);
-        setStats({ total, faces });
+        setStats({ total: res.data.total_clusters || 0, faces });
+        setPage(res.data.page || 1);
       }
     } catch (err) {
       console.error("Failed to fetch clusters:", err);
     } finally {
       setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    fetchClusters(1);
+  }, [fetchClusters]);
+
+  const handlePageChange = (newPage) => {
+    if (newPage >= 1 && newPage <= totalPages) {
+      fetchClusters(newPage);
     }
   };
 
@@ -48,7 +59,7 @@ export default function Clusters() {
     try {
       await mergeClusters(selected[0], selected[1]);
       setSelected([]);
-      await fetchClusters();
+      await fetchClusters(page);
     } catch (err) {
       console.error("Merge failed:", err);
     }
@@ -58,7 +69,7 @@ export default function Clusters() {
     id.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
-  // 🔥 DETAIL VIEW
+  // Detail View
   if (selectedCluster) {
     return (
       <div className="clusters-page">
@@ -78,6 +89,7 @@ export default function Clusters() {
                 src={`http://127.0.0.1:8000/images/${face.image}`}
                 alt={`Face ${i}`}
                 className="gallery-img"
+                loading="lazy"
               />
             </div>
           ))}
@@ -86,19 +98,20 @@ export default function Clusters() {
     );
   }
 
+  // Grid View
   return (
     <div className="clusters-page">
-      {/* HEADER */}
       <header className="header-section">
         <div className="header-content">
           <div className="title-area">
             <h2 className="main-title">Identity Nexus</h2>
-            <p className="subtitle">Consolidated gallery of mapped human entities</p>
+            <p className="subtitle">
+              {stats.total} identities · {stats.faces} total faces · Page {page} of {totalPages}
+            </p>
           </div>
         </div>
       </header>
 
-      {/* STATS */}
       <div className="stats-section">
         <div className="stat-card">
           <div className="stat-number">{stats.total}</div>
@@ -106,7 +119,7 @@ export default function Clusters() {
         </div>
         <div className="stat-card">
           <div className="stat-number">{stats.faces}</div>
-          <div className="stat-label">Total Faces</div>
+          <div className="stat-label">Faces on Page</div>
         </div>
         <div className="stat-card">
           <div className="stat-number">{selected.length}/2</div>
@@ -114,7 +127,6 @@ export default function Clusters() {
         </div>
       </div>
 
-      {/* SEARCH */}
       <div className="search-section">
         <input
           type="text"
@@ -125,7 +137,7 @@ export default function Clusters() {
         />
       </div>
 
-      {/* MERGE BUTTON */}
+      {/* Merge Button */}
       {selected.length === 2 && (
         <div className="merge-action">
           <button className="merge-btn" onClick={handleMerge}>
@@ -134,7 +146,7 @@ export default function Clusters() {
         </div>
       )}
 
-      {/* CLUSTERS GRID */}
+      {/* Grid */}
       {loading ? (
         <div className="loading">
           <div className="spinner"></div>
@@ -145,43 +157,67 @@ export default function Clusters() {
           <p>No clusters found. Process images first!</p>
         </div>
       ) : (
-        <div className="clusters-grid">
-          {filteredClusters.map(([id, cluster]) => (
-            <div
-              key={id}
-              className={`cluster-card ${selected.includes(id) ? "selected" : ""}`}
-              onClick={() => toggleSelect(id)}
-            >
-              <div className="cluster-image-wrapper">
-                <img
-                  src={`http://127.0.0.1:8000/thumbnail/${cluster.representative}`}
-                  alt={id}
-                  className="cluster-image"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    setSelectedCluster({ id, faces: cluster.faces });
-                  }}
-                />
-                <div className="cluster-overlay">
-                  <span className="cluster-size">{cluster.size}</span>
+        <>
+          <div className="clusters-grid">
+            {filteredClusters.map(([id, cluster]) => (
+              <div
+                key={id}
+                className={`cluster-card ${selected.includes(id) ? "selected" : ""}`}
+                onClick={() => toggleSelect(id)}
+              >
+                <div className="cluster-image-wrapper">
+                  <img
+                    src={`http://127.0.0.1:8000/thumbnail/${cluster.representative}`}
+                    alt={id}
+                    className="cluster-image"
+                    loading="lazy"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setSelectedCluster({ id, faces: cluster.faces });
+                    }}
+                  />
+                  <div className="cluster-overlay">
+                    <span className="cluster-size">{cluster.size}</span>
+                  </div>
+                </div>
+                <div className="cluster-info">
+                  <h3>{id}</h3>
+                  <p>{cluster.size} face{cluster.size !== 1 ? "s" : ""}</p>
+                  <button
+                    className={`select-btn ${selected.includes(id) ? "selected" : ""}`}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      toggleSelect(id);
+                    }}
+                  >
+                    {selected.includes(id) ? "✓ Selected" : "Select"}
+                  </button>
                 </div>
               </div>
-              <div className="cluster-info">
-                <h3>{id}</h3>
-                <p>{cluster.size} face{cluster.size !== 1 ? "s" : ""}</p>
-                <button
-                  className={`select-btn ${selected.includes(id) ? "selected" : ""}`}
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    toggleSelect(id);
-                  }}
-                >
-                  {selected.includes(id) ? "✓ Selected" : "Select"}
-                </button>
-              </div>
-            </div>
-          ))}
-        </div>
+            ))}
+          </div>
+
+          {/* Pagination Controls */}
+          <div className="pagination-controls">
+            <button 
+              className="pagination-btn" 
+              disabled={page <= 1} 
+              onClick={() => handlePageChange(page - 1)}
+            >
+              ← Previous
+            </button>
+            <span className="pagination-info">
+              Page {page} of {totalPages}
+            </span>
+            <button 
+              className="pagination-btn" 
+              disabled={page >= totalPages} 
+              onClick={() => handlePageChange(page + 1)}
+            >
+              Next →
+            </button>
+          </div>
+        </>
       )}
     </div>
   );

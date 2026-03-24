@@ -3,7 +3,6 @@ import os
 import cv2
 import numpy as np
 from tqdm import tqdm
-from concurrent.futures import ThreadPoolExecutor, as_completed
 
 from core.cluster import FaceCluster
 from core.detector import FaceDetector
@@ -16,6 +15,38 @@ from core.config import Config
 from core.object_detector import ObjectDetector
 
 
+# ─── Face Quality Gate ─────────────────────────────────────────
+MIN_FACE_SIZE = 40       # pixels — skip faces smaller than this
+MIN_LAPLACIAN_VAR = 15.0 # blur threshold — skip blurry face crops
+
+
+def _face_quality_ok(image, bbox):
+    """
+    Check if a face crop meets minimum quality requirements.
+    Returns False for faces that are too small or too blurry,
+    which would degrade embedding quality and clustering accuracy.
+    """
+    x1, y1, x2, y2 = bbox
+    w, h = x2 - x1, y2 - y1
+    
+    # Skip tiny faces — unreliable embeddings
+    if w < MIN_FACE_SIZE or h < MIN_FACE_SIZE:
+        return False
+    
+    # Skip blurry faces — check Laplacian variance
+    face_crop = image[y1:y2, x1:x2]
+    if face_crop.size == 0:
+        return False
+    
+    gray = cv2.cvtColor(face_crop, cv2.COLOR_BGR2GRAY)
+    laplacian_var = cv2.Laplacian(gray, cv2.CV_64F).var()
+    
+    if laplacian_var < MIN_LAPLACIAN_VAR:
+        return False
+    
+    return True
+
+
 class ImageProcessor:
     def __init__(self, image_folder, use_gpu=False):
         self.image_folder = image_folder
@@ -26,7 +57,53 @@ class ImageProcessor:
         self.metadata = []
 
         self.storage = Storage()
-        self.object_detector = ObjectDetector()
+        self.object_detector = ObjectDetector(min_confidence=0.4)
+
+    def _process_single_image(self, img_name):
+        """Process a single image: detect faces + objects, extract embeddings."""
+        try:
+            img_path = os.path.join(self.image_folder, img_name)
+            image = cv2.imread(img_path)
+            if image is None:
+                return [], []
+
+            faces = self.detector.detect(image)
+            objects = self.object_detector.detect(image)
+            
+            local_embeddings = []
+            local_metadata = []
+
+            for idx, f in enumerate(faces):
+                bbox = f["bbox"]
+                h, w, _ = image.shape
+                x1, y1, x2, y2 = bbox
+                x1, y1 = max(0, x1), max(0, y1)
+                x2, y2 = min(w, x2), min(h, y2)
+
+                if x2 <= x1 or y2 <= y1:
+                    continue
+
+                # Face quality gate — skip tiny/blurry faces
+                if not _face_quality_ok(image, [x1, y1, x2, y2]):
+                    continue
+
+                face_crop = image[y1:y2, x1:x2]
+                if face_crop.size == 0:
+                    continue
+
+                embedding = self.embedder.get_embedding(f["face"])
+                local_embeddings.append(embedding)
+                
+                local_metadata.append({
+                    "image": img_name,
+                    "face_id": int(idx),
+                    "bbox": [int(x1), int(y1), int(x2), int(y2)],
+                    "objects": objects,
+                })
+            return local_embeddings, local_metadata
+        except Exception as e:
+            print(f"Error processing {img_name}: {e}")
+            return [], []
 
     def process(self):
         # Load previous data
@@ -44,66 +121,25 @@ class ImageProcessor:
         new_embeddings_list = []
         new_metadata_list = []
 
-        # --- PARALLEL IMAGE PROCESSING ---
-        def process_single_image(img_name):
-            try:
-                img_path = os.path.join(self.image_folder, img_name)
-                image = cv2.imread(img_path)
-                if image is None: return [], []
-
-                faces = self.detector.detect(image)
-                objects = self.object_detector.detect(image)
-                
-                local_embeddings = []
-                local_metadata = []
-
-                for idx, f in enumerate(faces):
-                    embedding = self.embedder.get_embedding(f["face"])
-                    local_embeddings.append(embedding)
-                    
-                    bbox = f["bbox"]
-                    h, w, _ = image.shape
-                    x1, y1, x2, y2 = bbox
-                    x1, y1 = max(0, x1), max(0, y1)
-                    x2, y2 = min(w, x2), min(h, y2)
-
-                    if x2 <= x1 or y2 <= y1:
-                        continue
-
-                    face_crop = image[y1:y2, x1:x2]
-                    if face_crop.size == 0:
-                        continue
-
-                    local_metadata.append({
-                        "image": img_name,
-                        "face_id": int(idx),
-                        "bbox": [int(x1), int(y1), int(x2), int(y2)],
-                        "objects": objects,
-                    })
-                return local_embeddings, local_metadata
-            except Exception as e:
-                print(f"Error processing {img_name}: {e}")
-                return [], []
-
         images_to_process = [f for f in image_files if f not in processed_images]
         
-        print(f"⚡ Processing {len(images_to_process)} new images in parallel...")
+        print(f"⚡ Processing {len(images_to_process)} new images sequentially...")
         
-        # Using ThreadPoolExecutor for IO/CPU bound ONNX calls
-        with ThreadPoolExecutor(max_workers=4) as executor:
-            futures = {executor.submit(process_single_image, img): img for img in images_to_process}
-            
-            for future in tqdm(as_completed(futures), total=len(images_to_process), desc="Extracting Features"):
-                embs, metas = future.result()
-                if embs:
-                    new_embeddings_list.extend(embs)
-                    new_metadata_list.extend(metas)
+        # Sequential processing — ONNX sessions are NOT thread-safe.
+        # Previous ThreadPoolExecutor(max_workers=4) caused race conditions
+        # on the shared InsightFace model. Sequential is correct and still
+        # fast because ONNX Runtime uses intra-op parallelism internally.
+        for img_name in tqdm(images_to_process, desc="Extracting Features"):
+            embs, metas = self._process_single_image(img_name)
+            if embs:
+                new_embeddings_list.extend(embs)
+                new_metadata_list.extend(metas)
                     
         self.embeddings.extend(new_embeddings_list)
         self.metadata.extend(new_metadata_list)
 
         # --- PREPARE NEW EMBEDDINGS ---
-        new_embeddings = np.array(new_embeddings_list)
+        new_embeddings = np.array(new_embeddings_list) if new_embeddings_list else np.array([])
 
         # --- MERGE LOGIC ---
 
@@ -180,9 +216,9 @@ class ImageProcessor:
                 threshold=0.5
             )
 
-        # CASE 3: First run → DBSCAN
+        # CASE 3: First run → HDBSCAN (upgraded from DBSCAN)
         else:
-            print("⚡ First-time clustering (DBSCAN)")
+            print("⚡ First-time clustering (HDBSCAN)")
 
             clusterer = DBSCANCluster(eps=eps, min_samples=min_samples)
             clusters = clusterer.cluster(embeddings_array)

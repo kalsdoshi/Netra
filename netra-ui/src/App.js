@@ -6,6 +6,8 @@ import Search from "./pages/Search";
 import Suggestions from "./pages/Suggestions";
 import Objects from "./pages/Objects";
 import Graph from "./pages/Graph";
+import Timeline from "./pages/Timeline";
+import Content from "./pages/Content";
 import "./App.css";
 
 function App() {
@@ -16,6 +18,8 @@ function App() {
     { id: "clusters", label: "Identity Nexus", icon: "👥" },
     { id: "suggestions", label: "Merge AI", icon: "✨" },
     { id: "objects", label: "Object Index", icon: "📦" },
+    { id: "timeline", label: "Timeline", icon: "📅" },
+    { id: "content", label: "Content Tags", icon: "🏷️" },
     { id: "search", label: "Semantic Search", icon: "🔍" },
     { id: "graph", label: "3D Matrix", icon: "🌌" },
   ];
@@ -32,6 +36,10 @@ function App() {
         return <Suggestions />;
       case "objects":
         return <Objects />;
+      case "timeline":
+        return <Timeline />;
+      case "content":
+        return <Content />;
       case "graph":
         return <Graph />;
       default:

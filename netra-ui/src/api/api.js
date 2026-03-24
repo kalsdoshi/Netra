@@ -23,3 +23,6 @@ export const getObjectsByImage = (imageName) => API.get(`/objects/${imageName}`)
 
 export const getGraph = () => API.get("/graph");
 export const rebuildGraph = () => API.post("/graph/rebuild");
+export const getClustersPaginated = (page = 1, limit = 20) => API.get(`/clusters/paginated?page=${page}&limit=${limit}`);
+export const getTimeline = () => API.get("/timeline");
+export const getContentGroups = () => API.get("/content-groups");
