@@ -63,10 +63,15 @@ body {
 
 .logo-box {
   font-size: 1.8rem;
-  background: rgba(255, 255, 255, 0.05);
-  border: 1px solid var(--border-light);
+  background: linear-gradient(135deg, rgba(0, 240, 255, 0.12), rgba(0, 90, 255, 0.08));
+  border: 1px solid rgba(0, 240, 255, 0.2);
   border-radius: 12px;
-  padding: 0.5rem;
+  padding: 0.6rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--accent-cyan);
+  box-shadow: 0 0 20px rgba(0, 240, 255, 0.08);
 }
 
 .brand-text h2 {
@@ -75,6 +80,7 @@ body {
   font-size: 1.4rem;
   background: linear-gradient(90deg, var(--accent-cyan), #fff);
   -webkit-background-clip: text;
+  background-clip: text;
   -webkit-text-fill-color: transparent;
   letter-spacing: -0.5px;
 }
@@ -106,8 +112,9 @@ body {
   font-size: 0.95rem;
   font-weight: 500;
   cursor: pointer;
-  transition: all 0.2s;
+  transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
   text-align: left;
+  position: relative;
 }
 
 .sidebar-link:hover:not(.active) {
@@ -124,9 +131,32 @@ body {
   box-shadow: 0 4px 15px rgba(0, 240, 255, 0.1);
 }
 
+.sidebar-link.active::before {
+  content: '';
+  position: absolute;
+  left: -1.5rem;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 3px;
+  height: 60%;
+  background: linear-gradient(180deg, var(--accent-cyan), var(--accent-blue));
+  border-radius: 0 3px 3px 0;
+  box-shadow: 0 0 8px rgba(0, 240, 255, 0.4);
+}
+
 .sidebar-icon {
   font-size: 1.2rem;
   opacity: 0.9;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+}
+
+.sidebar-icon svg {
+  width: 18px;
+  height: 18px;
 }
 
 .sidebar-footer {

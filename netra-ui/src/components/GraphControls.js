@@ -1,4 +1,5 @@
 import React from 'react';
+import { LuZap } from 'react-icons/lu';
 import '../styles/Graph.css';
 
 export default function GraphControls({ filters, setFilters, onRebuild, loading }) {
@@ -42,7 +43,7 @@ export default function GraphControls({ filters, setFilters, onRebuild, loading 
       </div>
 
       <button className="cta-btn rebuild-btn" disabled={loading} onClick={onRebuild}>
-        {loading ? "Rebuilding..." : "⚡ Rebuild Graph Database"}
+        {loading ? "Rebuilding..." : <><LuZap size={16} style={{ verticalAlign: 'middle', marginRight: '0.3rem' }} /> Rebuild Graph Database</>}
       </button>
     </div>
   );

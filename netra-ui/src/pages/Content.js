@@ -1,45 +1,52 @@
 import React, { useEffect, useState } from "react";
+import {
+  LuUsers, LuCar, LuDog, LuCat, LuArmchair, LuSofa, LuUtensils,
+  LuWine, LuCoffee, LuSmartphone, LuLaptop, LuTv, LuBookOpen,
+  LuSprout, LuBedDouble, LuBike, LuShip, LuBackpack, LuUmbrella,
+  LuShoppingBag, LuBird, LuDumbbell, LuClock, LuScissors, LuBox,
+  LuTags, LuFolder, LuTruck, LuGlobe
+} from "react-icons/lu";
 import { getContentGroups } from "../api/api";
 import "../styles/Content.css";
 
-// Emoji map for common object categories
+// SVG icon map for common object categories
 const CATEGORY_ICONS = {
-  "People": "\u{1F465}",
-  "Car": "\u{1F697}",
-  "Dog": "\u{1F415}",
-  "Cat": "\u{1F431}",
-  "Chair": "\u{1FA91}",
-  "Couch": "\u{1F6CB}",
-  "Dining Table": "\u{1F37D}",
-  "Bottle": "\u{1F37E}",
-  "Cup": "\u{2615}",
-  "Cell Phone": "\u{1F4F1}",
-  "Laptop": "\u{1F4BB}",
-  "Tv": "\u{1F4FA}",
-  "Book": "\u{1F4DA}",
-  "Potted Plant": "\u{1F33F}",
-  "Bed": "\u{1F6CF}",
-  "Bicycle": "\u{1F6B2}",
-  "Motorcycle": "\u{1F3CD}",
-  "Bus": "\u{1F68C}",
-  "Truck": "\u{1F69B}",
-  "Boat": "\u{26F5}",
-  "Backpack": "\u{1F392}",
-  "Umbrella": "\u{2602}",
-  "Handbag": "\u{1F45C}",
-  "Tie": "\u{1F454}",
-  "Bench": "\u{1FA91}",
-  "Bird": "\u{1F426}",
-  "Horse": "\u{1F434}",
-  "Cow": "\u{1F404}",
-  "Sports Ball": "\u{26BD}",
-  "Tennis Racket": "\u{1F3BE}",
-  "Skateboard": "\u{1F6F9}",
-  "Surfboard": "\u{1F3C4}",
-  "Clock": "\u{1F550}",
-  "Vase": "\u{1F3FA}",
-  "Scissors": "\u{2702}",
-  "Uncategorized": "\u{1F4C1}",
+  "People": LuUsers,
+  "Car": LuCar,
+  "Dog": LuDog,
+  "Cat": LuCat,
+  "Chair": LuArmchair,
+  "Couch": LuSofa,
+  "Dining Table": LuUtensils,
+  "Bottle": LuWine,
+  "Cup": LuCoffee,
+  "Cell Phone": LuSmartphone,
+  "Laptop": LuLaptop,
+  "Tv": LuTv,
+  "Book": LuBookOpen,
+  "Potted Plant": LuSprout,
+  "Bed": LuBedDouble,
+  "Bicycle": LuBike,
+  "Motorcycle": LuBike,
+  "Bus": LuTruck,
+  "Truck": LuTruck,
+  "Boat": LuShip,
+  "Backpack": LuBackpack,
+  "Umbrella": LuUmbrella,
+  "Handbag": LuShoppingBag,
+  "Tie": LuTags,
+  "Bench": LuArmchair,
+  "Bird": LuBird,
+  "Horse": LuGlobe,
+  "Cow": LuGlobe,
+  "Sports Ball": LuDumbbell,
+  "Tennis Racket": LuDumbbell,
+  "Skateboard": LuBike,
+  "Surfboard": LuShip,
+  "Clock": LuClock,
+  "Vase": LuGlobe,
+  "Scissors": LuScissors,
+  "Uncategorized": LuFolder,
 };
 
 export default function Content() {
@@ -81,7 +88,7 @@ export default function Content() {
   if (selectedGroup) {
     const group = groups.find((g) => g.label === selectedGroup);
     if (!group) return null;
-    const icon = CATEGORY_ICONS[group.label] || "📦";
+    const IconComp = CATEGORY_ICONS[group.label] || LuBox;
 
     return (
       <div className="content-page">
@@ -90,7 +97,7 @@ export default function Content() {
         </button>
 
         <header className="content-detail-header">
-          <span className="content-detail-icon">{icon}</span>
+          <span className="content-detail-icon"><IconComp size={32} /></span>
           <div>
             <h2 className="main-title">{group.label}</h2>
             <p className="subtitle">{group.count} photos in this category</p>
@@ -136,7 +143,7 @@ export default function Content() {
     <div className="content-page">
       <header className="header-section">
         <div className="title-area">
-          <h2 className="main-title">🏷️ Content Classification</h2>
+          <h2 className="main-title"><LuTags style={{ verticalAlign: 'middle', marginRight: '0.5rem' }} /> Content Classification</h2>
           <p className="subtitle">
             {totalImages} photos classified into {groups.length} categories by AI-detected content
           </p>
@@ -164,7 +171,7 @@ export default function Content() {
       {/* Category cards */}
       <div className="content-grid">
         {groups.map((group) => {
-          const icon = CATEGORY_ICONS[group.label] || "📦";
+          const IconComp = CATEGORY_ICONS[group.label] || LuBox;
           // Use first image as preview
           const previewImg = group.images?.[0];
 
@@ -185,7 +192,7 @@ export default function Content() {
                   <div className="content-card-empty" />
                 )}
                 <div className="content-card-overlay">
-                  <span className="content-card-icon">{icon}</span>
+                  <span className="content-card-icon"><IconComp size={24} /></span>
                 </div>
               </div>
               <div className="content-card-info">

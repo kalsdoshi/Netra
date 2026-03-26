@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from "react";
+import { LuCalendarDays } from "react-icons/lu";
 import { getTimeline } from "../api/api";
 import "../styles/Timeline.css";
 
@@ -45,7 +46,7 @@ export default function Timeline() {
     <div className="timeline-page">
       <header className="header-section">
         <div className="title-area">
-          <h2 className="main-title">📅 Photo Timeline</h2>
+          <h2 className="main-title"><LuCalendarDays style={{ verticalAlign: 'middle', marginRight: '0.5rem' }} /> Photo Timeline</h2>
           <p className="subtitle">
             {totalImages} photos across {groups.length} dates — organized by when they were taken
           </p>

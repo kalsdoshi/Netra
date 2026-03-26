@@ -1,4 +1,15 @@
 import React, { useState } from "react";
+import {
+  LuScanEye,
+  LuLayoutDashboard,
+  LuUsers,
+  LuSparkles,
+  LuBox,
+  LuCalendarDays,
+  LuTags,
+  LuSearch,
+  LuOrbit,
+} from "react-icons/lu";
 
 import Home from "./pages/Home";
 import Clusters from "./pages/Clusters";
@@ -14,14 +25,14 @@ function App() {
   const [tab, setTab] = useState("home");
 
   const tabs = [
-    { id: "home", label: "Dashboard", icon: "🏠" },
-    { id: "clusters", label: "Identity Nexus", icon: "👥" },
-    { id: "suggestions", label: "Merge AI", icon: "✨" },
-    { id: "objects", label: "Object Index", icon: "📦" },
-    { id: "timeline", label: "Timeline", icon: "📅" },
-    { id: "content", label: "Content Tags", icon: "🏷️" },
-    { id: "search", label: "Semantic Search", icon: "🔍" },
-    { id: "graph", label: "3D Matrix", icon: "🌌" },
+    { id: "home", label: "Dashboard", icon: <LuLayoutDashboard /> },
+    { id: "clusters", label: "Identity Nexus", icon: <LuUsers /> },
+    { id: "suggestions", label: "Merge AI", icon: <LuSparkles /> },
+    { id: "objects", label: "Object Index", icon: <LuBox /> },
+    { id: "timeline", label: "Timeline", icon: <LuCalendarDays /> },
+    { id: "content", label: "Content Tags", icon: <LuTags /> },
+    { id: "search", label: "Semantic Search", icon: <LuSearch /> },
+    { id: "graph", label: "3D Matrix", icon: <LuOrbit /> },
   ];
 
   const renderPage = () => {
@@ -54,7 +65,7 @@ function App() {
 
       <aside className="app-sidebar">
         <div className="sidebar-brand">
-          <div className="logo-box">👁️</div>
+          <div className="logo-box"><LuScanEye /></div>
           <div className="brand-text">
             <h2>Netra</h2>
             <span>Vision Engine</span>

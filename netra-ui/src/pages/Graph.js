@@ -1,6 +1,7 @@
 import React, { useEffect, useState, useRef, useMemo, useCallback } from 'react';
 import ForceGraph3D from 'react-force-graph-3d';
 import * as THREE from 'three';
+import { LuUsers, LuBox, LuLink, LuGlobe } from 'react-icons/lu';
 import { getGraph, rebuildGraph, getObjectsByImage } from '../api/api';
 import GraphControls from '../components/GraphControls';
 import '../styles/Graph.css';
@@ -262,7 +263,7 @@ export default function Graph() {
               <div className="edge-metadata">
                 {activeEdgeMeta.sharedClusters.length > 0 && (
                   <div className="meta-section">
-                    <h5>{'\u{1F465}'} Shared Identities ({activeEdgeMeta.edge.face_sim.toFixed(2)})</h5>
+                    <h5><LuUsers size={14} style={{ verticalAlign: 'middle', marginRight: '0.3rem' }} /> Shared Identities ({activeEdgeMeta.edge.face_sim.toFixed(2)})</h5>
                     <div className="tag-list">
                       {activeEdgeMeta.sharedClusters.map(c => <span key={c} className="tag cluster-tag">{c}</span>)}
                     </div>
@@ -270,7 +271,7 @@ export default function Graph() {
                 )}
                 {activeEdgeMeta.sharedObjects.length > 0 && (
                   <div className="meta-section">
-                    <h5>{'\u{1F4E6}'} Shared Objects ({activeEdgeMeta.edge.object_sim.toFixed(2)})</h5>
+                    <h5><LuBox size={14} style={{ verticalAlign: 'middle', marginRight: '0.3rem' }} /> Shared Objects ({activeEdgeMeta.edge.object_sim.toFixed(2)})</h5>
                     <div className="tag-list">
                       {activeEdgeMeta.sharedObjects.map(o => <span key={o} className="tag object-tag">{o}</span>)}
                     </div>
@@ -323,7 +324,7 @@ export default function Graph() {
               {/* People in this image */}
               {selectedNode.clusters.length > 0 && (
                 <div className="detail-section">
-                  <h4>{'\u{1F465}'} People Detected</h4>
+                  <h4><LuUsers size={16} style={{ verticalAlign: 'middle', marginRight: '0.4rem' }} /> People Detected</h4>
                   <div className="tag-list">
                     {selectedNode.clusters.map(c => (
                       <span key={c} className="tag cluster-tag">{c}</span>
@@ -335,7 +336,7 @@ export default function Graph() {
               {/* Objects in this image */}
               {nodeObjects.length > 0 && (
                 <div className="detail-section">
-                  <h4>{'\u{1F4E6}'} Objects Detected</h4>
+                  <h4><LuBox size={16} style={{ verticalAlign: 'middle', marginRight: '0.4rem' }} /> Objects Detected</h4>
                   <div className="detail-objects-list">
                     {nodeObjects.map((obj, i) => (
                       <div key={i} className="detail-object-row">
@@ -356,7 +357,7 @@ export default function Graph() {
               {/* Connections */}
               {connections.length > 0 && (
                 <div className="detail-section">
-                  <h4>{'\u{1F517}'} Top Connections</h4>
+                  <h4><LuLink size={16} style={{ verticalAlign: 'middle', marginRight: '0.4rem' }} /> Top Connections</h4>
                   <div className="detail-connections">
                     {connections.map((conn, i) => {
                       const otherId = (typeof conn.source === 'object' ? conn.source.id : conn.source) === selectedNode.id
@@ -387,7 +388,7 @@ export default function Graph() {
               {/* Community */}
               {selectedNode.community !== undefined && (
                 <div className="detail-section">
-                  <h4>{'\u{1F30D}'} Community</h4>
+                  <h4><LuGlobe size={16} style={{ verticalAlign: 'middle', marginRight: '0.4rem' }} /> Community</h4>
                   <span className="community-badge">Group {selectedNode.community}</span>
                 </div>
               )}

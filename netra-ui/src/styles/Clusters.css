@@ -37,16 +37,32 @@
 .stat-card {
   background: rgba(255, 255, 255, 0.03);
   border: 1px solid var(--border-light);
+  border-top: 2px solid transparent;
+  border-image: linear-gradient(90deg, var(--accent-cyan), var(--accent-blue)) 1;
+  border-image-slice: 1 0 0 0;
   border-radius: 16px;
   padding: 1.5rem;
   display: flex;
   flex-direction: column;
   gap: 0.5rem;
-  transition: transform 0.2s;
+  transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+  position: relative;
+  overflow: hidden;
+}
+.stat-card::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 2px;
+  background: linear-gradient(90deg, var(--accent-cyan), var(--accent-blue));
+  border-radius: 16px 16px 0 0;
 }
 .stat-card:hover {
-  transform: translateY(-2px);
+  transform: translateY(-3px);
   background: rgba(255, 255, 255, 0.05);
+  box-shadow: 0 8px 25px rgba(0, 240, 255, 0.08);
 }
 
 .stat-number {

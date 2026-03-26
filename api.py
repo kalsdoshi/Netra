@@ -13,6 +13,8 @@ from pydantic import BaseModel
 from core.cluster import suggest_merges_fast
 from core.cluster import get_cluster_representatives
 from fastapi.staticfiles import StaticFiles
+from core.performance import get_monitor
+from core.gpu_utils import GPUDetector, get_processing_config
 
 
 app = FastAPI()
@@ -30,7 +32,7 @@ storage = Storage()
 index = storage.load_faiss_index()
 metadata = storage.load_metadata()
 
-detector = FaceDetector(use_gpu=False)
+detector = FaceDetector(use_gpu=None)  # Auto-detect GPU
 embedder = FaceEmbedder()
 
 search_engine = FaceSearch(detector, embedder, index)
@@ -46,7 +48,6 @@ _cache = {
 
 THUMBS_DIR = os.path.join("storage_data", "thumbs")
 os.makedirs(THUMBS_DIR, exist_ok=True)
-
 
 def _get_metadata():
     """Return cached metadata, reload if invalidated."""
@@ -573,4 +574,91 @@ def get_content_groups():
         "total_images": len(image_files),
         "total_groups": len(result),
         "groups": result,
+    }
+
+
+# ─── SYSTEM HEALTH & PERFORMANCE MONITORING ────────────────────
+
+@app.get("/health")
+def health_check():
+    """
+    Health check endpoint. Returns system status and GPU availability.
+    """
+    try:
+        gpu_detector = GPUDetector()
+        
+        health_status = {
+            "status": "healthy",
+            "timestamp": str(__import__('datetime').datetime.now()),
+            "system": {
+                "gpu_available": gpu_detector.is_available(),
+                "gpu_device_id": gpu_detector.get_device_id(),
+                "cpu_cores": os.cpu_count(),
+            },
+            "data": {
+                "metadata_count": len(metadata) if metadata else 0,
+                "embeddings_shape": embeddings.shape if embeddings is not None else None,
+                "has_index": index is not None,
+            }
+        }
+        return health_status
+    except Exception as e:
+        return {
+            "status": "error",
+            "error": str(e)
+        }
+
+
+@app.get("/stats")
+def processing_stats():
+    """
+    Get processing performance statistics and bottleneck analysis.
+    Requires that a pipeline run has been logged to the monitor.
+    """
+    monitor = get_monitor()
+    
+    stats = {
+        "timestamp": str(__import__('datetime').datetime.now()),
+        "operations": {}
+    }
+    
+    # Collect stats for all tracked operations
+    for op_name in ['batch_load', 'feature_extraction', 'faiss_indexing', 
+                   'clustering', 'graph_building', 'batch_processing']:
+        op_stats = monitor.get_stats(op_name)
+        if op_stats:
+            stats['operations'][op_name] = op_stats
+    
+    # Add bottleneck analysis
+    bottlenecks = monitor.get_bottleneck_analysis()
+    stats['bottlenecks'] = [
+        {
+            'operation': b['operation'],
+            'percentage': b['percentage'],
+            'time_seconds': b['total_time']
+        }
+        for b in bottlenecks
+    ]
+    
+    return stats
+
+
+@app.get("/config")
+def get_system_config():
+    """
+    Get recommended processing configuration based on current system.
+    """
+    gpu_detector = GPUDetector()
+    
+    # Estimate based on current data
+    estimated_images = len(metadata) // 3 if metadata else 0
+    config = get_processing_config(estimated_images)
+    
+    return {
+        "gpu_available": gpu_detector.is_available(),
+        "recommendations": config,
+        "current_data": {
+            "total_faces": len(metadata) if metadata else 0,
+            "total_embeddings": embeddings.shape[0] if embeddings is not None else 0,
+        }
     }

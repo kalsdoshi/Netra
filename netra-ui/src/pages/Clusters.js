@@ -1,4 +1,5 @@
 import React, { useEffect, useState, useCallback } from "react";
+import { LuGitMerge } from "react-icons/lu";
 import { getClustersPaginated, mergeClusters } from "../api/api";
 import "../styles/Clusters.css";
 
@@ -130,7 +131,7 @@ export default function Clusters() {
       <div className="search-section">
         <input
           type="text"
-          placeholder="🔍 Search clusters..."
+          placeholder="Search clusters..."
           value={searchTerm}
           onChange={(e) => setSearchTerm(e.target.value)}
           className="search-input"
@@ -141,7 +142,7 @@ export default function Clusters() {
       {selected.length === 2 && (
         <div className="merge-action">
           <button className="merge-btn" onClick={handleMerge}>
-            ⚡ MERGE {selected[0]} + {selected[1]}
+            <LuGitMerge size={18} style={{ verticalAlign: 'middle', marginRight: '0.4rem' }} /> MERGE {selected[0]} + {selected[1]}
           </button>
         </div>
       )}

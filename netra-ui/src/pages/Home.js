@@ -1,10 +1,10 @@
 import React, { useEffect, useState } from 'react';
+import { LuOrbit, LuUsers } from 'react-icons/lu';
 import { getGraph, getClusters } from '../api/api';
 import '../styles/Clusters.css'; // Inherits base polished CSS 
 
 export default function Home({ navigateTo }) {
   const [stats, setStats] = useState({ nodes: 0, edges: 0, communities: 0, identities: 0 });
-  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     async function loadStats() {
@@ -29,8 +29,6 @@ export default function Home({ navigateTo }) {
         setStats({ nodes, edges, communities: communities.size, identities });
       } catch (e) {
         console.error("Dashboard fetch failed", e);
-      } finally {
-        setLoading(false);
       }
     }
     loadStats();
@@ -66,7 +64,7 @@ export default function Home({ navigateTo }) {
 
       <div className="dashboard-actions" style={{ display: 'flex', gap: '1.5rem', marginTop: '2rem' }}>
         <button className="cta-btn" onClick={() => navigateTo('graph')} style={{ padding: '1.5rem 2rem', fontSize: '1.2rem', display: 'flex', alignItems: 'center', gap: '1rem' }}>
-          <span style={{ fontSize: '1.8rem' }}>🌌</span>
+          <LuOrbit size={28} />
           <div>
              <div style={{ fontWeight: 800 }}>Enter 3D Matrix</div>
              <div style={{ fontSize: '0.85rem', opacity: 0.8, fontWeight: 500 }}>Visualize entire relational index</div>
@@ -74,7 +72,7 @@ export default function Home({ navigateTo }) {
         </button>
 
         <button className="cta-btn" onClick={() => navigateTo('clusters')} style={{ padding: '1.5rem 2rem', fontSize: '1.2rem', display: 'flex', alignItems: 'center', gap: '1rem', background: 'rgba(255,255,255,0.05)', boxShadow: 'none', border: '1px solid rgba(255,255,255,0.1)' }}>
-          <span style={{ fontSize: '1.8rem' }}>👥</span>
+          <LuUsers size={28} />
           <div>
              <div style={{ fontWeight: 800 }}>Manage Identities</div>
              <div style={{ fontSize: '0.85rem', opacity: 0.8, fontWeight: 500 }}>Review extracted faces</div>
