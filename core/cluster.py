@@ -1,47 +1,6 @@
 import numpy as np
 import hdbscan
 
-class FaceCluster:
-    def __init__(self, threshold=0.5):
-        self.threshold = threshold
-
-    def cluster(self, embeddings):
-        clusters = []
-        visited = set()
-
-        for i in range(len(embeddings)):
-            if i in visited:
-                continue
-
-            group = [i]
-            visited.add(i)
-
-            for j in range(i + 1, len(embeddings)):
-                if j in visited:
-                    continue
-
-                sim = np.dot(embeddings[i], embeddings[j])
-
-                if sim > self.threshold:
-                    group.append(j)
-                    visited.add(j)
-
-            clusters.append(group)
-
-        return clusters
-    
-def merge_clusters(cluster_dict, id1, id2):
-    if id1 not in cluster_dict or id2 not in cluster_dict:
-        return cluster_dict
-
-    # merge id2 into id1
-    cluster_dict[id1].extend(cluster_dict[id2])
-
-    # remove id2
-    del cluster_dict[id2]
-
-    return cluster_dict
-
 
 def assign_to_clusters(all_embeddings, new_embeddings, cluster_dict, old_count, threshold=0.5):
     """
@@ -173,15 +132,6 @@ class HDBSCANCluster:
         return list(clusters.values())
 
 
-# Keep backward-compatible alias
-class DBSCANCluster(HDBSCANCluster):
-    """Backward-compatible alias — now uses HDBSCAN internally."""
-    def __init__(self, eps=0.5, min_samples=2):
-        super().__init__(
-            min_cluster_size=min_samples, 
-            min_samples=1,
-            cluster_selection_epsilon=0.35
-        )
 
 
 def get_cluster_representatives(embeddings, cluster_dict):

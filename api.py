@@ -2,7 +2,6 @@ from fastapi import FastAPI, UploadFile, File, Query
 import shutil
 import os
 import hashlib
-from functools import lru_cache
 from fastapi.middleware.cors import CORSMiddleware
 from core.search import FaceSearch
 from core.detector import FaceDetector

@@ -1,16 +1,14 @@
-from importlib.metadata import metadata
 import os
 import cv2
 import numpy as np
 from tqdm import tqdm
 
-from core.cluster import FaceCluster
+from core.cluster import HDBSCANCluster
 from core.detector import FaceDetector
 from core.embedder import FaceEmbedder
 from core.visualize import save_clusters
 from storage.store import Storage
 from core.faiss_index import FaissIndex
-from core.cluster import DBSCANCluster
 from core.config import Config
 from core.object_detector import ObjectDetector
 from core.gpu_utils import GPUDetector, get_processing_config, print_system_info
@@ -282,7 +280,11 @@ class ImageProcessor:
         else:
             print("⚡ First-time clustering (HDBSCAN)")
 
-            clusterer = DBSCANCluster(eps=eps, min_samples=min_samples)
+            clusterer = HDBSCANCluster(
+                min_cluster_size=min_samples,
+                min_samples=1,
+                cluster_selection_epsilon=0.35
+            )
             clusters = clusterer.cluster(embeddings_array)
 
             cluster_dict = {
